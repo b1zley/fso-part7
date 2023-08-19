@@ -1,23 +1,53 @@
 import { useState } from 'react'
 
+import { useField } from './hooks'
+
+
+import {
+  BrowserRouter as Router,
+  Routes, Route, Link,
+  useParams,
+  useNavigate
+} from 'react-router-dom'
+
+
+
+
 const Menu = () => {
   const padding = {
     paddingRight: 5
   }
   return (
+
     <div>
-      <a href='#' style={padding}>anecdotes</a>
-      <a href='#' style={padding}>create new</a>
-      <a href='#' style={padding}>about</a>
+      <Link style={padding} to="/">home</Link>
+      <Link style={padding} to="/create">create new</Link>
+      <Link style={padding} to="/about">about</Link>
     </div>
+
   )
+
+
+
+
+  // previous return statement
+  // return (
+  //   <div>
+  //     <a href='#' style={padding}>anecdotes</a>
+  //     <a href='#' style={padding}>create new</a>
+  //     <a href='#' style={padding}>about</a>
+  //   </div>
+  // )
 }
 
 const AnecdoteList = ({ anecdotes }) => (
   <div>
     <h2>Anecdotes</h2>
     <ul>
-      {anecdotes.map(anecdote => <li key={anecdote.id} >{anecdote.content}</li>)}
+      {anecdotes.map(anecdote =>
+        <li key={anecdote.id} >
+          <Link to={`/anecdotes/${anecdote.id}`}>{anecdote.content}</Link>
+        </li>)}
     </ul>
   </div>
 )
@@ -36,29 +66,63 @@ const About = () => (
   </div>
 )
 
-const Footer = () => (
-  <div>
-    Anecdote app for <a href='https://fullstackopen.com/'>Full Stack Open</a>.
+const Footer = () => {
+  const a = {
+    position: 'fixed',
+    width: '100%',
+    bottom: 0,
+    background: 'white'
+  }
+  return (
+    <div style={a}>
+      Anecdote app for <a href='https://fullstackopen.com/'>Full Stack Open</a>.
 
-    See <a href='https://github.com/fullstack-hy2020/routed-anecdotes/blob/master/src/App.js'>https://github.com/fullstack-hy2020/routed-anecdotes/blob/master/src/App.js</a> for the source code.
-  </div>
-)
+      See <a href='https://github.com/fullstack-hy2020/routed-anecdotes/blob/master/src/App.js'>https://github.com/fullstack-hy2020/routed-anecdotes/blob/master/src/App.js</a> for the source code.
+    </div>
+  )
+}
 
 const CreateNew = (props) => {
-  const [content, setContent] = useState('')
-  const [author, setAuthor] = useState('')
-  const [info, setInfo] = useState('')
+  // const [content, setContent] = useState('')
+  // const [author, setAuthor] = useState('')
+  // const [info, setInfo] = useState('')
 
+  const content = useField('text')
+  const author = useField('text')
+  const info = useField('text')
+
+  const navigate = useNavigate()
 
   const handleSubmit = (e) => {
     e.preventDefault()
     props.addNew({
-      content,
-      author,
-      info,
+      content: content.value,
+      author: author.value,
+      info: info.value,
       votes: 0
     })
+    navigate('/')
+    console.log(content)
+    props.setNotification(`added new anecdote - ${content.value} by ${author.value}`)
+    setTimeout(() => {
+      props.setNotification('')
+    }, 5000)
+
   }
+
+  const handleReset = () => {
+    console.log('in handle reset')
+    const resetObject = {
+      target: {
+        value: ''
+      }
+    }
+    content.onChange(resetObject)
+    author.onChange(resetObject)
+    info.onChange(resetObject)
+  }
+
+  
 
   return (
     <div>
@@ -66,21 +130,56 @@ const CreateNew = (props) => {
       <form onSubmit={handleSubmit}>
         <div>
           content
-          <input name='content' value={content} onChange={(e) => setContent(e.target.value)} />
+          <input {...content}/>
         </div>
         <div>
           author
-          <input name='author' value={author} onChange={(e) => setAuthor(e.target.value)} />
+          <input {...author}/>
         </div>
         <div>
           url for more info
-          <input name='info' value={info} onChange={(e)=> setInfo(e.target.value)} />
+          <input {...info}/>
         </div>
-        <button>create</button>
+        <button type="submit">create</button>
+        <button type="button" onClick={handleReset}>reset</button>
       </form>
     </div>
   )
 
+}
+
+const SingleAnecdote = ({ anecdotes, anecdoteById }) => {
+  const id = useParams().id
+
+  const anecdoteToDisplay = anecdoteById(id)
+
+
+
+
+  return (
+    <div>
+      <h2>{anecdoteToDisplay.content} by {anecdoteToDisplay.author}</h2>
+      <div>has {anecdoteToDisplay.votes} votes</div>
+      <div>for more information see
+        <a href={anecdoteToDisplay.info}>{anecdoteToDisplay.info}</a>
+      </div>
+
+    </div>
+  )
+
+
+}
+
+const Notification = ({ notification, setNotification }) => {
+
+  if (notification === '')
+    return (
+      null
+    )
+  if (notification !== '')
+    return (
+      <div>{notification}</div>
+    )
 }
 
 const App = () => {
@@ -108,8 +207,10 @@ const App = () => {
     setAnecdotes(anecdotes.concat(anecdote))
   }
 
-  const anecdoteById = (id) =>
-    anecdotes.find(a => a.id === id)
+  const anecdoteById = (id) => {
+    console.log(anecdotes)
+    return (anecdotes.find(a => a.id === Number(id)))
+  }
 
   const vote = (id) => {
     const anecdote = anecdoteById(id)
@@ -122,16 +223,48 @@ const App = () => {
     setAnecdotes(anecdotes.map(a => a.id === id ? voted : a))
   }
 
+
   return (
     <div>
-      <h1>Software anecdotes</h1>
-      <Menu />
-      <AnecdoteList anecdotes={anecdotes} />
-      <About />
-      <CreateNew addNew={addNew} />
+      <h1>Software Anecdotes</h1>
+      <Router>
+        <Menu />
+
+        <Routes>
+          <Route path="/" element={
+            <>
+              <Notification notification={notification} setNotification={setNotification} />
+              <AnecdoteList anecdotes={anecdotes} />
+            </>
+          } />
+          <Route path="/create" element={<CreateNew addNew={addNew} setNotification={setNotification} />} />
+          <Route path="/about" element={<About />} />
+          <Route path="/anecdotes/:id"
+            element={
+              <SingleAnecdote
+                anecdoteById={anecdoteById}
+              />
+            } />
+        </Routes>
+
+      </Router>
       <Footer />
     </div>
   )
+
+
+
+  // previous return statement
+  // return (
+  //   <div>
+  //     <h1>Software anecdotes</h1>
+  //     <Menu />
+  //     <AnecdoteList anecdotes={anecdotes} />
+  //     <About />
+  //     <CreateNew addNew={addNew} />
+  //     <Footer />
+  //   </div>
+  // )
 }
 
 export default App
